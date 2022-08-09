@@ -20,7 +20,7 @@ while 1:
             if val:
                 delta = val - prev[i]
                 prev[i] = val
-                print("{}: {} pkt/s".format(i, delta))
+                print(" {} pkt/s".format(delta))
         time.sleep(1)
     except KeyboardInterrupt:
         print("Removing filter from device")

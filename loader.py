@@ -3,15 +3,18 @@
 from bcc import BPF
 import time
 import sys
+if sys.argv[1] == "-dev":
+    device = sys.argv[2]
+else:
+    printf(" Enter -dev NICname")
 
-device = "wlp7s0"
 b = BPF(src_file="program.c")
 fn = b.load_func("drop_packets_count", BPF.XDP)
 b.attach_xdp(device, fn, 0)
 packetcnt = b.get_table("packetcnt")
 
 prev = [0] * 256
-print("Printing dropped packet counts per IP protocol-number, hit CTRL+C to stop")
+print("Printing dropped packet counts, hit CTRL+C to stop")
 while 1:
     try:
         for k in packetcnt.keys():

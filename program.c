@@ -10,46 +10,54 @@
 #include <linux/icmp.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
-//#include <bpf/bpf_helpers.h>
-//#include <bpf/bpf_endian.h>
-//BPF_PERCPU_ARRAY(packetcnt, uint32_t, 32);
 
-BPF_TABLE("percpu_array", uint32_t, long, packetcnt, 256);
+BPF_TABLE("percpu_array", uint32_t, long, packetcntd, 256);
 
-int drop_packets_count(struct xdp_md *ctx) {
-	
+int packets_count(struct xdp_md *ctx) {
+
 	int ipsize = 0;
-	
+
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
-	
+
 	struct ethhdr *eth = data;
-	struct iphdr *ip;
 	
-	long *cnt;
-	__u32 idx;
+	struct iphdr *iphdr;
+	struct ipv6hdr *ipv6hdr;
+
+
+	long *cntd;
+
+	__u32 ip_type;
 
 	ipsize = sizeof(*eth);
-	ip = data + ipsize;
+	iphdr = data + ipsize;
 	ipsize += sizeof(struct iphdr);
 
 	if (data + ipsize > data_end){
-			return XDP_ABORTED;
-			}
-	
-	idx = ip->protocol;
-        cnt = packetcnt.lookup(&idx);
-	
-	if (ip->protocol == IPPROTO_TCP) {
 
-		if (cnt) {
-			*cnt += 1;
+		return XDP_ABORTED;
+	}
+
+	ip_type = iphdr->protocol;
+	
+	cntd = packetcntd.lookup(&ip_type);
+	
+	if(!cntd) {
+	
+		return  XDP_ABORTED;
+	}
+	
+	if (ip_type == IPPROTO_TCP) {
+
+		if (cntd) {
+			*cntd += 1;
 		}
 
 		return XDP_DROP;
 	}
 
 
-	
+
 	return XDP_PASS;
 }

@@ -12,6 +12,7 @@
 #include <linux/tcp.h>
 
 BPF_TABLE("percpu_array", uint32_t, long, packetcntd, 256);
+BPF_TABLE("percpu_array", uint32_t, long, packetcntp, 256);
 
 int packets_count(struct xdp_md *ctx) {
 
@@ -25,25 +26,31 @@ int packets_count(struct xdp_md *ctx) {
 	struct iphdr *iphdr;
 	struct ipv6hdr *ipv6hdr;
 
+	struct udphdr *udphdr;
+        struct tcphdr *tcphdr;
 
-	long *cntd;
 
-	__u32 ip_type;
+	long *cntd, *cntp;
+
+	__u32 ip_type, eth_type;
 
 	ipsize = sizeof(*eth);
 	iphdr = data + ipsize;
 	ipsize += sizeof(struct iphdr);
 
+	
 	if (data + ipsize > data_end){
 
 		return XDP_ABORTED;
 	}
 
+
 	ip_type = iphdr->protocol;
 	
 	cntd = packetcntd.lookup(&ip_type);
+	cntp= packetcntp.lookup(&ip_type);
 	
-	if(!cntd) {
+	if(!cntd || !cntp) {
 	
 		return  XDP_ABORTED;
 	}
@@ -55,6 +62,12 @@ int packets_count(struct xdp_md *ctx) {
 		}
 
 		return XDP_DROP;
+	} else if (ip_type == IPPROTO_UDP) {
+		if (cntp) {
+                        *cntp += 1;
+                }
+
+                return XDP_PASS;
 	}
 
 

@@ -13,6 +13,8 @@
 
 BPF_TABLE("percpu_array", uint32_t, long, packetcntd, 256);
 BPF_TABLE("percpu_array", uint32_t, long, packetcntp, 256);
+BPF_TABLE("percpu_array", uint32_t, long, packetcntx, 256);
+
 
 int packets_count(struct xdp_md *ctx) {
 
@@ -30,7 +32,7 @@ int packets_count(struct xdp_md *ctx) {
         struct tcphdr *tcphdr;
 
 
-	long *cntd, *cntp;
+	long *cntd, *cntp, *cntx;
 
 	__u32 ip_type, eth_type;
 
@@ -49,28 +51,31 @@ int packets_count(struct xdp_md *ctx) {
 	
 	cntd = packetcntd.lookup(&ip_type);
 	cntp= packetcntp.lookup(&ip_type);
+	cntx= packetcntx.lookup(&ip_type);
+
 	
-	if(!cntd || !cntp) {
+	if(!cntd || !cntp || !cntx) {
 	
 		return  XDP_ABORTED;
 	}
 	
 	if (ip_type == IPPROTO_TCP) {
 
-		if (cntd) {
-			*cntd += 1;
+		if (cntp) {
+			*cntp += 1;
 		}
 
-		return XDP_DROP;
+		return XDP_PASS;
 	} else if (ip_type == IPPROTO_UDP) {
-		if (cntp) {
-                        *cntp += 1;
+		if (cntd) {
+                        *cntd += 1;
                 }
 
-                return XDP_PASS;
+                return XDP_DROP;
 	}
 
+        if (cntx) 
+		*cntx += 1;
 
-
-	return XDP_PASS;
+	return XDP_TX;
 }

@@ -14,24 +14,31 @@ fn = b.load_func("packets_count", BPF.XDP)
 b.attach_xdp(device, fn, 0)
 packetcntd = b.get_table("packetcntd")
 packetcntp = b.get_table("packetcntp")
+packetcntx = b.get_table("packetcntx")
 
 prevp = [0] * 512
 prevd = [0] * 512
+prevm = [0] * 512
+
 
 percentage = [0] * 512
 deltad = 0
 deltap = 0
+deltax = 0
 
 print("Packet counts, hit CTRL+C to stop")
 while 1:
     try:
-        for k,l in zip(packetcntd.keys(),packetcntp.keys()):
+        for k,l,m in zip(packetcntd.keys(),packetcntp.keys(), packetcntx.keys()):
           
             vald = packetcntd.sum(k).value
             valp = packetcntp.sum(l).value
+            valx = packetcntx.sum(m).value
+
             
             i = k.value
             j = l.value
+            n = m.value
             
             if vald:
                 deltad = vald - prevd[i]
@@ -43,8 +50,16 @@ while 1:
                 prevp[j] = valp
                 print("XDP_PASS {} pkt/s".format(deltap))
                 if deltad ^ deltap:
-                    percentage[i] = math.floor((deltad/(deltad + deltap))*100)
-                print("Percentage dropped {} % ".format(percentage[i]))
+                    percentage[j] = math.floor((deltad/(deltad + deltap))*100)
+                print("Percentage dropped {} % ".format(percentage[j]))
+            
+            if valx:
+                deltax = valx - prevm[n]
+                prevm[n] = valx
+                print("XDP_TX {} pkt/s".format(deltax))
+                total = deltad + deltap + deltax
+                print("Total {} pkts/s".format(total))
+
      
         time.sleep(1)
     except KeyboardInterrupt:

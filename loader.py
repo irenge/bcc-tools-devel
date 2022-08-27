@@ -29,7 +29,7 @@ deltax = 0
 print("Packet counts, hit CTRL+C to stop")
 while 1:
     try:
-        for k,l,m in zip(packetcntd.keys(),packetcntp.keys(), packetcntx.keys()):
+        for k,l,m in zip(packetcntd.keys(), packetcntp.keys(), packetcntx.keys()):
           
             vald = packetcntd.sum(k).value
             valp = packetcntp.sum(l).value

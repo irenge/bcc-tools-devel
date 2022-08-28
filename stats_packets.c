@@ -9,17 +9,8 @@
 #include <linux/udp.h>
 #include <linux/tcp.h>
 
-#pragma GCC diagnostic warning "-Wnocompare-distinct-pointer-types"
-
 BPF_TABLE("percpu_array", uint32_t, long, packetcntd, 256);
 BPF_TABLE("percpu_array", uint32_t, long, packetcntp, 256);
-
-/*
-struct vlan_hdr {
-	__be16	h_vlan_TCI;
-	__be16	h_vlan_encapsulated_proto;
-};
-*/
 
 
 struct hdr_cursor {
@@ -54,9 +45,6 @@ static __always_inline int parse_ip6hdr(struct hdr_cursor *nh, void *data_end, s
 	*ipv6hdr = ip6h;
 
 	return ip6h->nexthdr;
-
-
-
 }
 
 static __always_inline int parse_iphdr(struct hdr_cursor *nh,
@@ -155,7 +143,22 @@ static __always_inline int parse_icmphdr(struct hdr_cursor *nh,
 
 	return icmph->type;
 }
+/*
+static __always_inline int parse_icmphdr_common(struct hdr_cursor *nh,
+						void *data_end,
+						struct icmphdr_common **icmphdr)
+{
+	struct icmphdr_common *h = nh->pos;
 
+	if (h + 1 > data_end)
+		return -1;
+
+	nh->pos  = h + 1;
+	*icmphdr = h;
+
+	return h->type;
+}
+*/
 int packets_count(struct xdp_md *ctx) {
 
 	int eth_type, ip_type;
@@ -195,10 +198,21 @@ int packets_count(struct xdp_md *ctx) {
 	if (!cntd || !cntp)
 		return XDP_ABORTED;
 	if (eth_type == bpf_htons(ETH_P_IPV6)) {
+
 		ip_type = parse_ip6hdr(&nh, data_end, &ipv6hdr);
+		if (ip_type != IPPROTO_ICMPV6) {
+		} else {
+		}
+		
 
 	} else if (eth_type == bpf_htons(ETH_P_IP)) {
 		ip_type = parse_iphdr(&nh, data_end, &iphdr);
+		
+		if (ip_type == IPPROTO_ICMP) {
+		
+		} else {
+
+		}
 	} else {
 		if (cntd)
                         *cntd += 1;

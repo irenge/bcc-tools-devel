@@ -4,12 +4,12 @@
 #include <linux/if_packet.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#include <linux/icmp.h>
 #include <linux/icmpv6.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
 
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_endian.h>
+#pragma GCC diagnostic warning "-Wnocompare-distinct-pointer-types"
 
 BPF_TABLE("percpu_array", uint32_t, long, packetcntd, 256);
 BPF_TABLE("percpu_array", uint32_t, long, packetcntp, 256);
@@ -44,36 +44,6 @@ static __always_inline int parse_ethhdr(struct hdr_cursor *nh,
 
 	return eth->h_proto; /* network-byte-order */
 }
-/*
-   static __always_inline int parse_iphdr(struct hdr_cursor *nh, void *data_end, struct iphdr **iphdr)
-   {
-
-   struct iphdr *iph = nh->pos;
-   int hdrsize = iph->ihl * 4;
-
-//if ((iph + 1 ) > data_end)
-//      return -1;
-
-//hdrsize = iph->ihl * 4;
-
-if ((iph + hdrsize ) > data_end)
-return -1;
-
-// Sanity check packet field is valid 
-if(hdrsize < sizeof(*iph))
-return -1;
-
-// Variable-length IPv4 header, need to use byte-based arithmetic 
-if (nh->pos + hdrsize > data_end)
-return -1;
-
-nh->pos += hdrsize;
- *iphdr = iph;
-
- return iph->protocol;
-
- }
- */
 
 static __always_inline int parse_ip6hdr(struct hdr_cursor *nh, void *data_end, struct ipv6hdr **ipv6hdr)
 {
@@ -96,9 +66,6 @@ static __always_inline int parse_iphdr(struct hdr_cursor *nh,
         struct iphdr *iph = nh->pos;
         int hdrsize = 0;
 
-/*        if (iph + 1 > data_end)
-                return -1;
-*/
         hdrsize = iph->ihl * 4;
         /* Sanity check packet field is valid */
         if(hdrsize < sizeof(*iph))
@@ -159,6 +126,35 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
         return len;
 }
 
+static __always_inline int parse_icmp6hdr(struct hdr_cursor *nh,
+					  void *data_end,
+					  struct icmp6hdr **icmp6hdr)
+{
+	struct icmp6hdr *icmp6h = nh->pos;
+
+	if (icmp6h + 1 > data_end)
+		return -1;
+
+	nh->pos   = icmp6h + 1;
+	*icmp6hdr = icmp6h;
+
+	return icmp6h->icmp6_type;
+}
+
+static __always_inline int parse_icmphdr(struct hdr_cursor *nh,
+					 void *data_end,
+					 struct icmphdr **icmphdr)
+{
+	struct icmphdr *icmph = nh->pos;
+
+	if (icmph + 1 > data_end)
+		return -1;
+
+	nh->pos  = icmph + 1;
+	*icmphdr = icmph;
+
+	return icmph->type;
+}
 
 int packets_count(struct xdp_md *ctx) {
 
@@ -170,11 +166,23 @@ int packets_count(struct xdp_md *ctx) {
 	struct tcphdr *tcphdr;
 
 	long * cntd, *cntp;
+	int ipsize = 0;
 
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
 
 	struct hdr_cursor nh = { .pos = data };
+
+	ipsize = sizeof(*eth);
+        //iphdr = data + ipsize;
+        ipsize += sizeof(struct iphdr);
+
+
+        if (data + ipsize > data_end){
+
+                return XDP_ABORTED;
+        }
+
 
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
 
@@ -189,10 +197,6 @@ int packets_count(struct xdp_md *ctx) {
 	if (eth_type == bpf_htons(ETH_P_IPV6)) {
 		ip_type = parse_ip6hdr(&nh, data_end, &ipv6hdr);
 
-		/*if (cntd)
-			*cntd += 1;
-		return XDP_DROP;
-		*/
 	} else if (eth_type == bpf_htons(ETH_P_IP)) {
 		ip_type = parse_iphdr(&nh, data_end, &iphdr);
 	} else {
@@ -202,16 +206,18 @@ int packets_count(struct xdp_md *ctx) {
 		return XDP_DROP;
 	}
 
+	if (ip_type < 0)
+		return XDP_ABORTED;
+
 	if (ip_type == IPPROTO_UDP) {
 		if (parse_udphdr(&nh, data_end, &udphdr) < 0) {
 			return XDP_ABORTED;
 		}
-		//udphdr->dest = bpf_htons(bpf_ntohs(udphdr->dest) - 1);
+		udphdr->dest = bpf_htons(bpf_ntohs(udphdr->dest) - 1);
 
 	} else if (ip_type == IPPROTO_TCP) {
 		if (parse_tcphdr(&nh, data_end, &tcphdr) < 0) {
-                        //action = XDP_ABORTED;
-                        //goto out;
+                
                 } else {
 			tcphdr->dest = bpf_htons(bpf_ntohs(tcphdr->dest) - 1);
 		}
@@ -226,29 +232,3 @@ int packets_count(struct xdp_md *ctx) {
 
 }
 
-/*
-
-   if (eth_type == bpf_htons(ETH_P_IP)) {
-
-   ip_type =parse_iphdr(&nh, data_end, &iphdr);
-
-   cntp= packetcntp.lookup(&ip_type);
-
-   if (cntd) {
- *cntd += 1;
- }
- return XDP_DROP;
-
- }
-
-
- return XDP_PASS;
- }
- */
-
-
-
-
-
-
-//}

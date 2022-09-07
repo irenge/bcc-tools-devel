@@ -155,6 +155,7 @@ int packets_count(struct xdp_md *ctx) {
 	struct ipv6hdr *ipv6hdr;
 	struct udphdr *udphdr;
 	struct tcphdr *tcphdr;
+	struct icmphdr *icmph;
 
 	long *cntd, *cntp, *cntx, *cnttcp, *cntudp, *cntpng;
 

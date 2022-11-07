@@ -1,3 +1,9 @@
+/*
+ * Filter UDP IP out 
+ * Only TCP pass
+ * Other  
+ */
+
 #undef KBUILD_MODNAME 
 #define KBUILD_MODNAME "program"
 #include <linux/bpf.h>

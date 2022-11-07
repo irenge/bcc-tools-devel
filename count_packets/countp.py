@@ -26,7 +26,7 @@ deltad = 0
 deltap = 0
 deltax = 0
 
-print("Packet counts, hit CTRL+C to stop")
+print("Packets count: UDP packets - drooped  TCP - accepted -  Other type of  Packet - bounced to NIC, hit CTRL+C to stop")
 while 1:
     try:
         for k,l,m in zip(packetcntd.keys(), packetcntp.keys(), packetcntx.keys()):

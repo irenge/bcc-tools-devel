@@ -5,7 +5,7 @@ from bcc import BPF
 b = BPF(text="""
 #include <uapi/linux/ptrace.h>
 
-#BPF_HASH(last);
+//BPF_HASH(last);
 BPF_PERCPU_HASH(last);
 
 struct data_t {
